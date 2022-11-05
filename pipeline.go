@@ -74,14 +74,3 @@ func (pl *Pipeline) start(d any) {
 	}
 	pl.entry.outChan <- pl.entry.worker(d)
 }
-
-// 流水线完成
-//func (pl *Pipeline) success() {
-//	if pl.final == nil {
-//		return
-//	}
-//	// 监听最后步骤的通道
-//	for range pl.final.outChan {
-//		pl.wg.Done()
-//	}
-//}

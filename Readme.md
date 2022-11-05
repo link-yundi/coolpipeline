@@ -16,45 +16,7 @@ go get -u github.com/link-yundi/coolpipeline
 
 ### 示例
 
-#### 工作流：
-
-```go
-import "github.com/link-yundi/ylog"
-
-func main() {
-    addFunc := func(in any) (out any) {
-        i := in.(int)
-        tmp := i
-        i++
-        ylog.Info(tmp, "add", 1, "=", i)
-        return i
-    }
-    squareFunc := func(in any) (out any) {
-        i := in.(int)
-        tmp := i
-        i *= i
-        ylog.Info(tmp, "square", "=", i)
-        return i
-    }
-    // 流水线定义： 工作顺序
-    pool := NewPool(1, addFunc, squareFunc, addFunc)
-    pool.AddTask(1, 3, 6)
-    pool.Wait()
-    pool.Close()
-}
-// output:
-// 2022/11/05 13:49:41 [INFO] [1 add 1 = 2]
-// 2022/11/05 13:49:41 [INFO] [3 add 1 = 4]
-// 2022/11/05 13:49:41 [INFO] [4 square = 16]
-// 2022/11/05 13:49:41 [INFO] [16 add 1 = 17]
-// 2022/11/05 13:49:41 [INFO] [6 add 1 = 7]
-// 2022/11/05 13:49:41 [INFO] [7 square = 49]
-// 2022/11/05 13:49:41 [INFO] [49 add 1 = 50]
-// 2022/11/05 13:49:41 [INFO] [2 square = 4]
-// 2022/11/05 13:49:41 [INFO] [4 add 1 = 5]
-```
-
-#### 并发：
+#### 多条流水线并发：
 
 ```go
 import "github.com/link-yundi/ylog"
@@ -86,8 +48,8 @@ func main() {
         ylog.Info(out)
         return
     }
-    // 工作流定义: 2个并发
-    pool := NewPool(5, buy, build, pack)
+    // 工作流定义: 2个并发, 两套流水线生产3台手机理论上需要18s
+    pool := NewPool(2, buy, build, pack)
     // 订购3台
     var ins []any
     for i := 1; i <= 3; i++ {
@@ -101,15 +63,15 @@ func main() {
 }
 
 // output
-// 2022/11/05 13:55:23 [INFO] [零件2]
-// 2022/11/05 13:55:23 [INFO] [零件1]
-// 2022/11/05 13:55:24 [INFO] [零件3]
-// 2022/11/05 13:55:28 [INFO] [组装(零件1)]
-// 2022/11/05 13:55:28 [INFO] [组装(零件2)]
-// 2022/11/05 13:55:29 [INFO] [组装(零件3)]
-// 2022/11/05 13:55:31 [INFO] [打包(组装(零件2))]
-// 2022/11/05 13:55:31 [INFO] [打包(组装(零件1))]
-// 2022/11/05 13:55:32 [INFO] [打包(组装(零件3))]
-// 2022/11/05 13:55:32 [INFO] [耗时:  10.004996625 s]
+// 2022/11/05 18:03:21 [INFO] [零件1]
+// 2022/11/05 18:03:21 [INFO] [零件2]
+// 2022/11/05 18:03:26 [INFO] [组装(零件1)]
+// 2022/11/05 18:03:26 [INFO] [组装(零件2)]
+// 2022/11/05 18:03:29 [INFO] [打包(组装(零件2))]
+// 2022/11/05 18:03:29 [INFO] [打包(组装(零件1))]
+// 2022/11/05 18:03:30 [INFO] [零件3]
+// 2022/11/05 18:03:35 [INFO] [组装(零件3)]
+// 2022/11/05 18:03:38 [INFO] [打包(组装(零件3))]
+// 2022/11/05 18:03:38 [INFO] [耗时:  18.008715458 s]
 ```
 

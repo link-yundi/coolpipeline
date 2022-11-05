@@ -14,8 +14,9 @@ Created on 2022-11-05 12:04
 
 type Pool struct {
 	*parallelPool
-	pipelinePool *sync.Pool
-	taskPool     *sync.Pool      // 任务池
+	limitCh      chan int
+	pipelinePool *objPool
+	taskPool     *objPool        // 任务池
 	taskInChan   chan any        // 参数通道，任务会不断监听该通道，根据读到的参数传递给任务并执行任务
 	wg           *sync.WaitGroup // 任务计数器
 }
@@ -23,19 +24,22 @@ type Pool struct {
 // 流水线池
 func NewPool(size int, workers ...Worker) *Pool {
 	p := &Pool{
+		limitCh:    make(chan int, size),
 		taskInChan: make(chan any, size),
 		wg:         &sync.WaitGroup{},
 	}
 	// 并发池
 	parallelPool := newParallelPool(size)
 	// 对象池
-	pipelinePool := &sync.Pool{
-		New: func() any {
+	pipelinePool := newObjPool(
+		size,
+		func() any {
 			return newPipeline(workers...)
 		},
-	}
-	taskPool := &sync.Pool{
-		New: func() any {
+	)
+	taskPool := newObjPool(
+		size,
+		func() any {
 			pt := &pipelineTask{
 				Pipeline: pipelinePool.Get().(*Pipeline),
 				In:       nil,
@@ -43,7 +47,7 @@ func NewPool(size int, workers ...Worker) *Pool {
 			go p.success(pt)
 			return pt
 		},
-	}
+	)
 	p.parallelPool = parallelPool
 	p.pipelinePool = pipelinePool
 	p.taskPool = taskPool
