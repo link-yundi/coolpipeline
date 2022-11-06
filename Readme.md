@@ -10,6 +10,7 @@ go get -u github.com/link-yundi/coolpipeline
 
 ### 特性
 
+- 池化，复用
 - 流水线定制
 - 多条流水线并发
 

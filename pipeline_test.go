@@ -33,7 +33,6 @@ func TestName(t *testing.T) {
 	// 工作流定义
 	pool := NewPipelines(1, addFunc, squareFunc, addFunc)
 	pool.AddTask(1, 3, 6)
-	pool.Wait()
 }
 
 func TestFactor(t *testing.T) {
@@ -68,7 +67,6 @@ func TestFactor(t *testing.T) {
 		ins = append(ins, i)
 	}
 	pipeline.AddTask(ins...)
-	pipeline.Wait()
 	end := time.Now()
 	duration := end.Sub(start).Seconds()
 	ylog.Info("耗时: ", duration, "s")

@@ -1,6 +1,8 @@
 package coolpipeline
 
-import "sync"
+import (
+	"sync"
+)
 
 /*
 *
@@ -18,7 +20,10 @@ type Pipeline struct {
 	final       Worker // 最后的步骤
 	workflows   []Worker
 	workingChan chan int // 正在工作的数量
-	wg          *sync.WaitGroup
+	inWg        *sync.WaitGroup
+	inCache     chan any // 参数缓存
+	exitFlag    bool
+	threadWg    *sync.WaitGroup
 }
 
 func NewPipelines(parallelSize int, workers ...Worker) *Pipeline {
@@ -38,38 +43,48 @@ func NewPipelines(parallelSize int, workers ...Worker) *Pipeline {
 		final:       final,
 		workflows:   newWorkers,
 		workingChan: make(chan int, parallelSize),
-		wg:          &sync.WaitGroup{},
+		inWg:        &sync.WaitGroup{},
+		threadWg:    &sync.WaitGroup{},
+		inCache:     make(chan any, parallelSize),
 	}
 	return pipeline
 }
 
 // 开始第一步的任务
-func (pl *Pipeline) start(d any) {
-	if len(pl.workflows) < 1 {
-		return
+func (pl *Pipeline) start(in any) {
+	pl.threadWg.Add(1)
+	for !pl.exitFlag {
+		if len(pl.workflows) < 1 {
+			return
+		}
+		var (
+			out any
+		)
+		out = pl.entry(in)
+		for _, w := range pl.workflows[1:] {
+			in = out
+			out = w(in)
+		}
+		pl.inWg.Done()
+		in = <-pl.inCache
 	}
-	var (
-		in, out any
-	)
-	in = d
-	out = pl.entry(in)
-	for _, w := range pl.workflows[1:] {
-		in = out
-		out = w(in)
-	}
-	pl.wg.Done()
+	pl.threadWg.Done()
 	<-pl.workingChan
 }
 
 func (pl *Pipeline) AddTask(ins ...any) {
 	for _, in := range ins {
-		pl.workingChan <- 1
-		pl.wg.Add(1)
-		go pl.start(in)
+		pl.inWg.Add(1)
+		select {
+		case pl.workingChan <- 1:
+			go pl.start(in)
+		default:
+			pl.inCache <- in
+		}
 	}
-}
-
-func (pl *Pipeline) Wait() {
-	pl.wg.Wait()
-	close(pl.workingChan)
+	pl.inWg.Wait()
+	close(pl.inCache)
+	pl.exitFlag = true
+	pl.threadWg.Wait()
+	close(pl.workingChan) //
 }
