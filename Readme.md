@@ -49,14 +49,14 @@ func main() {
         return
     }
     // 工作流定义: 2个并发, 两套流水线生产3台手机理论上需要18s
-    pool := NewPool(2, buy, build, pack)
+    pipeline := NewPipelines(2, buy, build, pack)
     // 订购3台
     var ins []any
     for i := 1; i <= 3; i++ {
         ins = append(ins, i)
     }
-    pool.AddTask(ins...)
-    pool.Wait()
+    pipeline.AddTask(ins...)
+    pipeline.Wait()
     end := time.Now()
     duration := end.Sub(start).Seconds()
     ylog.Info("耗时: ", duration, "s")

@@ -1,70 +1,46 @@
 package coolpipeline
 
-/**
+import "sync"
+
+/*
+*
 ------------------------------------------------
 Created on 2022-11-04 17:34
 @Author: ZhangYundi
 @Email: yundi.xxii@outlook.com
 ------------------------------------------------
-**/
-
+*
+*/
 type Worker func(in any) (out any)
 
-type workFlow struct {
-	outChan chan any
-	worker  Worker
-}
-
-func newWorkFlow(worker Worker) *workFlow {
-	return &workFlow{
-		outChan: make(chan any),
-		worker:  worker,
-	}
-}
-
 type Pipeline struct {
-	entry     *workFlow // 步骤1
-	final     *workFlow // 最后的步骤
-	workflows []*workFlow
-	pool      *parallelPool
-	//wg        *sync.WaitGroup
+	entry       Worker // 步骤1
+	final       Worker // 最后的步骤
+	workflows   []Worker
+	workingChan chan int // 正在工作的数量
+	wg          *sync.WaitGroup
 }
 
-func newPipeline(workers ...Worker) *Pipeline {
-	var entry, final *workFlow
-	workflowList := make([]*workFlow, 0)
+func NewPipelines(parallelSize int, workers ...Worker) *Pipeline {
+	newWorkers := make([]Worker, 0)
 	for _, w := range workers {
-		wf := newWorkFlow(w)
-		workflowList = append(workflowList, wf)
-	}
-	if len(workflowList) > 0 {
-		entry = workflowList[0]
-		final = workflowList[len(workflowList)-1]
-	}
-	pipeline := &Pipeline{
-		entry:     entry,
-		final:     final,
-		workflows: workflowList,
-	}
-	pipeline.listen()
-	return pipeline
-}
-
-// 启动监听
-func (pl *Pipeline) listen() {
-	if len(pl.workflows) < 1 {
-		return
-	}
-	delivery := func(curCh chan any, nextWf *workFlow) {
-		for d := range curCh {
-			nextWf.outChan <- nextWf.worker(d)
+		if w != nil {
+			newWorkers = append(newWorkers, w)
 		}
 	}
-	for index, wf := range pl.workflows[:len(pl.workflows)-1] {
-		// 监听
-		nextWf := pl.workflows[index+1]
-		go delivery(wf.outChan, nextWf)
+	var entry, final Worker
+	if len(newWorkers) > 0 {
+		entry = newWorkers[0]
+		final = newWorkers[len(newWorkers)-1]
 	}
+	pipeline := &Pipeline{
+		entry:       entry,
+		final:       final,
+		workflows:   newWorkers,
+		workingChan: make(chan int, parallelSize),
+		wg:          &sync.WaitGroup{},
+	}
+	return pipeline
 }
 
 // 开始第一步的任务
@@ -72,5 +48,28 @@ func (pl *Pipeline) start(d any) {
 	if len(pl.workflows) < 1 {
 		return
 	}
-	pl.entry.outChan <- pl.entry.worker(d)
+	var (
+		in, out any
+	)
+	in = d
+	out = pl.entry(in)
+	for _, w := range pl.workflows[1:] {
+		in = out
+		out = w(in)
+	}
+	pl.wg.Done()
+	<-pl.workingChan
+}
+
+func (pl *Pipeline) AddTask(ins ...any) {
+	for _, in := range ins {
+		pl.workingChan <- 1
+		pl.wg.Add(1)
+		go pl.start(in)
+	}
+}
+
+func (pl *Pipeline) Wait() {
+	pl.wg.Wait()
+	close(pl.workingChan)
 }

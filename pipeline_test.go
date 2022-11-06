@@ -31,10 +31,9 @@ func TestName(t *testing.T) {
 		return i
 	}
 	// 工作流定义
-	pool := NewPool(1, addFunc, squareFunc, addFunc)
+	pool := NewPipelines(1, addFunc, squareFunc, addFunc)
 	pool.AddTask(1, 3, 6)
 	pool.Wait()
-	pool.Close()
 }
 
 func TestFactor(t *testing.T) {
@@ -62,14 +61,14 @@ func TestFactor(t *testing.T) {
 		return
 	}
 	// 工作流定义
-	pool := NewPool(2, buy, build, pack)
-	// 订购10台
+	pipeline := NewPipelines(2, buy, build, pack)
+	// 订购3台
 	var ins []any
 	for i := 1; i <= 3; i++ {
 		ins = append(ins, i)
 	}
-	pool.AddTask(ins...)
-	pool.Wait()
+	pipeline.AddTask(ins...)
+	pipeline.Wait()
 	end := time.Now()
 	duration := end.Sub(start).Seconds()
 	ylog.Info("耗时: ", duration, "s")
