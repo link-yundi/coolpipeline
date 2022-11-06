@@ -60,7 +60,8 @@ func TestFactor(t *testing.T) {
 		return
 	}
 	// 工作流定义
-	pipeline := NewPipelines(2, buy, build, pack)
+	pipeline := NewPipelines(3, buy, build, pack)
+	//pipeline := NewPipelines(2, buy, nil)
 	// 订购3台
 	var ins []any
 	for i := 1; i <= 3; i++ {

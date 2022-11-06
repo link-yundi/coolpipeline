@@ -56,7 +56,6 @@ func main() {
         ins = append(ins, i)
     }
     pipeline.AddTask(ins...)
-    pipeline.Wait()
     end := time.Now()
     duration := end.Sub(start).Seconds()
     ylog.Info("耗时: ", duration, "s")

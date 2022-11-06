@@ -52,24 +52,26 @@ func NewPipelines(parallelSize int, workers ...Worker) *Pipeline {
 
 // 开始第一步的任务
 func (pl *Pipeline) start(in any) {
+	defer func() {
+		pl.threadWg.Done()
+		<-pl.workingChan
+	}()
 	pl.threadWg.Add(1)
 	for !pl.exitFlag {
-		if len(pl.workflows) < 1 {
-			return
+		if len(pl.workflows) >= 1 {
+			var (
+				out any
+			)
+			out = pl.entry(in)
+			for _, w := range pl.workflows[1:] {
+				in = out
+				out = w(in)
+			}
 		}
-		var (
-			out any
-		)
-		out = pl.entry(in)
-		for _, w := range pl.workflows[1:] {
-			in = out
-			out = w(in)
-		}
+
 		pl.inWg.Done()
 		in = <-pl.inCache
 	}
-	pl.threadWg.Done()
-	<-pl.workingChan
 }
 
 func (pl *Pipeline) AddTask(ins ...any) {
@@ -82,9 +84,9 @@ func (pl *Pipeline) AddTask(ins ...any) {
 			pl.inCache <- in
 		}
 	}
-	pl.inWg.Wait()
+	pl.inWg.Wait() // 等待所有的参数进入 working
 	close(pl.inCache)
 	pl.exitFlag = true
-	pl.threadWg.Wait()
-	close(pl.workingChan) //
+	pl.threadWg.Wait() // 等待所有的 thread 完毕
+	close(pl.workingChan)
 }
